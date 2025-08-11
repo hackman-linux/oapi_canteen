@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manager Dashboard - OAPI Canteen{% endblock %}
+
+{% block extra_css %}
+<style>
+    .manager-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    .urgent-order {
+        border-left: 4px solid #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">Manager Dashboard</h1>
+                    <p class="text-muted mb-0">Today's operations overview</p>
+                </div>
+                <div>
+                    <span class="badge bg-success me-2">Online</span>
+                    <span class="text-muted">{{ "now"|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card manager-card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ todays_orders_count }}</h4>
+                            <p class="mb-0 opacity-75">Today's Orders</p>
+                        </div>
+                        <i class="bi bi-bag-check" style="font-size: 2.5rem; opacity: 0.7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-gradient-success text-white border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ todays_revenue|floatformat:0 }} XAF</h4>
+                            <p class="mb-0 opacity-75">Today's Revenue</p>
+                        </div>
+                        <i class="bi bi-cash-coin" style="font-size: 2.5rem; opacity: 0.7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-gradient-warning text-white border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ pending_orders }}</h4>
+                            <p class="mb-0 opacity-75">Pending Orders</p>
+                        </div>
+                        <i class="bi bi-clock-history" style="font-size: 2.5rem; opacity: 0.7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-gradient-info text-white border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">{{ preparing_orders }}</h4>
+                            <p class="mb-0 opacity-75">Preparing</p>
+                        </div>
+                        <i class="bi bi-tools" style="font-size: 2.5rem; opacity: 0.7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Orders Needing Attention -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Quick Actions</h5>
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <a href="{% url 'orders:pending' %}" class="btn btn-outline-warning w-100">
+                                <i class="bi bi-clock-history d-block mb-2" style="font-size: 1.5rem;"></i>
+                                Pending Orders
+                                {% if pending_orders > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ pending_orders }}</span>
+                                {% endif %}
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{% url 'orders:list' %}" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-list-check d-block mb-2" style="font-size: 1.5rem;"></i>
+                                All Orders
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{% url 'menu:admin_list' %}" class="btn btn-outline-success w-100">
+                                <i class="bi bi-card-list d-block mb-2" style="font-size: 1.5rem;"></i>
+                                Manage Menu
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{% url 'payments:admin_list' %}" class="btn btn-outline-info w-100">
+                                <i class="bi bi-credit-card d-block mb-2" style="font-size: 1.5rem;"></i>
+                                Payments
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" onclick="generateReport()">
+                                <i class="bi bi-graph-up d-block mb-2" style="font-size: 1.5rem;"></i>
+                                Reports
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-dark w-100" onclick="exportData()">
+                                <i class="bi bi-download d-block mb-2" style="font-size: 1.5rem;"></i>
+                                Export Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Confirmation Modal -->
+<div class="modal fade" id="confirmOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to confirm this order?</p>
+                <div class="alert alert-info">
+                    <small><i class="bi bi-info-circle me-1"></i>This will notify the customer and start preparation.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmOrderBtn">Confirm Order</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedOrderNumber = null;
+
+function confirmOrder(orderNumber) {
+    selectedOrderNumber = orderNumber;
+    const modal = new bootstrap.Modal(document.getElementById('confirmOrderModal'));
+    modal.show();
+}
+
+document.getElementById('confirmOrderBtn').addEventListener('click', async function() {
+    if (!selectedOrderNumber) return;
+    
+    try {
+        dashboard.showLoading('Confirming order...');
+        
+        const response = await fetch('/orders/update-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': dashboard.getCSRFToken()
+            },
+            body: JSON.stringify({
+                order_number: selectedOrderNumber,
+                status: 'CONFIRMED'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            dashboard.showToast('Order confirmed successfully!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            dashboard.showToast(data.message || 'Failed to confirm order', 'error');
+        }
+    } catch (error) {
+        console.error('Error confirming order:', error);
+        dashboard.showToast('Error confirming order', 'error');
+    } finally {
+        dashboard.hideLoading();
+        bootstrap.Modal.getInstance(document.getElementById('confirmOrderModal')).hide();
+    }
+});
+
+function generateReport() {
+    dashboard.showToast('Report generation coming soon!', 'info');
+}
+
+function exportData() {
+    dashboard.showToast('Data export coming soon!', 'info');
+}
+
+// Auto-refresh pending orders every 60 seconds
+setInterval(function() {
+    // Only refresh if we're still on the manager dashboard
+    if (window.location.pathname.includes('manager')) {
+        window.location.reload();
+    }
+}, 60000);
+
+// Real-time notifications for new orders
+if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+}
+
+// Check for new orders every 30 seconds
+setInterval(async function() {
+    try {
+        const response = await fetch('/dashboard/api/order-stats/');
+        const data = await response.json();
+        
+        // Update pending orders count
+        const currentPending = parseInt(document.querySelector('.bg-gradient-warning h4').textContent);
+        if (data.pending > currentPending) {
+            // New pending order
+            if (Notification.permission === 'granted') {
+                new Notification('New Order!', {
+                    body: `${data.pending - currentPending} new order(s) need attention`,
+                    icon: '/static/images/logo.png'
+                });
+            }
+            dashboard.showToast(`${data.pending - currentPending} new order(s) received!`, 'info');
+        }
+        
+        // Update stats
+        document.querySelector('.bg-gradient-warning h4').textContent = data.pending;
+        
+    } catch (error) {
+        console.error('Error checking for new orders:', error);
+    }
+}, 30000);
+</script>
+{% endblock %}-sm">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            Orders Needing Attention
+                        </h5>
+                        <a href="{% url 'orders:pending' %}" class="btn btn-outline-primary btn-sm">View All Pending</a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if orders_needing_attention %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Order #</th>
+                                        <th>Customer</th>
+                                        <th>Items</th>
+                                        <th>Total</th>
+                                        <th>Time</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in orders_needing_attention %}
+                                    <tr class="{% if order.created_at|timesince|slice:':2' >= '30' %}urgent-order{% endif %}">
+                                        <td>
+                                            <strong>#{{ order.order_number }}</strong>
+                                            {% if order.created_at|timesince|slice:':2' >= '30' %}
+                                                <i class="bi bi-exclamation-circle text-danger ms-1" title="Urgent: Over 30 minutes old"></i>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                {% if order.customer.avatar %}
+                                                    <img src="{{ order.customer.avatar.url }}" alt="" class="rounded-circle me-2" width="24" height="24">
+                                                {% else %}
+                                                    <i class="bi bi-person-circle me-2"></i>
+                                                {% endif %}
+                                                {{ order.customer.get_full_name }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <small>{{ order.get_items_summary|truncatechars:30 }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>{{ order.total_amount|floatformat:0 }} XAF</strong>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ order.created_at|timesince }} ago</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ order.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <button class="btn btn-success btn-sm" onclick="confirmOrder('{{ order.order_number }}')">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle display-1 text-success"></i>
+                            <h5 class="mt-3 text-muted">All caught up!</h5>
+                            <p class="text-muted">No orders need immediate attention.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Stats -->
+        <div class="col-lg-4">
+            <!-- Weekly Performance -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h6 class="card-title mb-0">Weekly Performance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-primary mb-0">{{ weekly_orders_count }}</h4>
+                            <small class="text-muted">Orders</small>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success mb-0">{{ weekly_revenue|floatformat:0 }}</h4>
+                            <small class="text-muted">XAF Revenue</small>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 6px;">
+                        <div class="progress-bar bg-gradient-primary" style="width: 75%"></div>
+                    </div>
+                    <small class="text-muted">75% of weekly target</small>
+                </div>
+            </div>
+
+            <!-- Popular Items This Week -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h6 class="card-title mb-0">Popular Items This Week</h6>
+                </div>
+                <div class="card-body p-0">
+                    {% for item in popular_items_week %}
+                    <div class="d-flex justify-content-between align-items-center p-3 {% if not forloop.last %}border-bottom{% endif %}">
+                        <div>
+                            <h6 class="mb-0">{{ item.menu_item__name }}</h6>
+                            <small class="text-muted">{{ item.total_ordered }} orders</small>
+                        </div>
+                        <div class="progress" style="width: 60px; height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {{ item.total_ordered|add:'0'|floatformat:0 }}%"></div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-4">
+                        <p class="text-muted mb-0">No orders this week</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Payment Overview -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h6 class="card-title mb-0">Today's Payment Overview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted">Total Payments:</small>
+                        <strong>{{ payment_stats.total_payments }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-success">Completed:</small>
+                        <span class="badge bg-success">{{ payment_stats.completed_payments }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-warning">Pending:</small>
+                        <span class="badge bg-warning">{{ payment_stats.pending_payments }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-danger">Failed:</small>
+                        <span class="badge bg-danger">{{ payment_stats.failed_payments }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow
